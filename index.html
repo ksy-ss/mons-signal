@@ -1,91 +1,219 @@
 <!DOCTYPE html>
 <html lang="ko">
-<head>
+  <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Signal Project</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WANT Service</title>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;700;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
     <style>
-        /* CSS 스타일 (디자인) */
-        :root {
-            --main-color: #6200ea;
-            --accent-color: #ffd700;
-            --bg-color: #f8f5ff;
-        }
-        body { font-family: 'Noto Sans KR', sans-serif; background-color: var(--bg-color); margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 480px; margin: 0 auto; background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        h1 { text-align: center; color: var(--main-color); margin-bottom: 30px; line-height: 1.4; }
-        h1 span { color: var(--main-color); background: linear-gradient(120deg, transparent 60%, var(--accent-color) 60%); padding: 0 5px; }
-        
-        .form-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 8px; font-weight: 500; color: #555; }
-        select, input { width: 100%; padding: 12px; border: 2px solid #eee; border-radius: 12px; font-size: 16px; box-sizing: border-box; transition: 0.3s; }
-        select:focus, input:focus { border-color: var(--main-color); outline: none; }
-        
-        .btn-submit { width: 100%; background-color: var(--main-color); color: white; border: none; padding: 16px; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 10px; }
-        .btn-submit:hover { opacity: 0.9; transform: translateY(-2px); }
-        .btn-stats { background-color: #fff; color: #555; border: 2px solid #eee; margin-top: 15px; font-size: 14px; }
+      /* --- [동적 테마 적용을 위한 CSS 변수] --- */
+      :root {
+        --main-color: #6200ea;   /* 앱 설정에 따라 바뀜 */
+        --accent-color: #ffd700; /* 앱 설정에 따라 바뀜 */
+        --bg-color: #f8f5ff;     /* 앱 설정에 따라 바뀜 */
+        --text-color: #333;
+      }
 
-        /* 통계 영역 (초기엔 숨김) */
-        #statsSection { display: none; margin-top: 30px; border-top: 2px dashed #eee; padding-top: 20px; }
-        .chart-container { position: relative; height: 250px; width: 100%; margin-bottom: 20px; }
-        
-        .loading { text-align: center; display: none; margin: 10px 0; color: var(--main-color); }
+      /* --- 공통 스타일 --- */
+      body { margin:0; padding:0; font-family:'Pretendard', sans-serif; background:#fff; color:var(--text-color); overflow-y:auto; }
+      .container { max-width:450px; margin:0 auto; padding:20px; min-height:100vh; display:flex; flex-direction:column; position: relative; }
+      .view { display:none; flex-direction:column; animation: fadeIn 0.3s ease-in-out; }
+      .view.active { display:flex; }
+      
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+      
+      /* 타이틀 & 헤더 */
+      h1 { font-size:24px; font-weight:700; margin:40px 0 20px 0; line-height:1.4; word-break: keep-all; }
+      h1 span { color:var(--main-color); }
+      
+      /* 입력 폼 */
+      .label { font-weight:700; margin-bottom:8px; display:block; font-size:14px; color:var(--text-color); margin-top: 15px; }
+      .input-field { width:100%; padding:12px; font-size:16px; border:1px solid #ddd; border-radius:8px; outline:none; background:#fff; box-sizing:border-box; transition:0.3s; }
+      .input-field:focus { border-color:var(--main-color); box-shadow: 0 0 0 2px rgba(98, 0, 234, 0.1); }
+      .detail-row { display: flex; gap: 10px; margin-bottom: 5px; }
+      .detail-col { flex: 1; }
+
+      /* 버튼 */
+      button { width:100%; padding:18px; font-size:16px; font-weight:700; border:none; border-radius:12px; cursor:pointer; margin-top:10px; transition: 0.2s; }
+      .btn-primary { background-color:var(--main-color); color:white; margin-top: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+      .btn-primary:active { transform: scale(0.98); opacity: 0.9; }
+      .btn-text { background-color:transparent; color:#999; margin-top:20px; }
+      .btn-stats { background-color:var(--bg-color); color:var(--main-color); margin-top:15px; font-size:14px; font-weight: 600; }
+
+      /* 태그 구름 */
+      #cloud-area { margin-bottom:30px; display:flex; flex-wrap:wrap; gap:10px; justify-content: flex-start; }
+      .tag { background:var(--bg-color); padding:10px 16px; border-radius:24px; font-size:15px; color:var(--main-color); cursor:pointer; font-weight: 500; transition:0.2s; border: 1px solid transparent; }
+      .tag:hover { border-color:var(--main-color); background:white; }
+
+      /* 결과 화면 UI */
+      .circle-container { position: relative; width: 160px; height: 160px; margin: 30px auto; display: flex; align-items: center; justify-content: center; }
+      .circle { 
+        width: 100%; height: 100%; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; 
+        font-weight: 900; background: white; transition: all 0.5s ease;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1); border: 1px solid #eee;
+      }
+      .count-group { text-align: center; }
+      .count-label { font-size: 11px; color: #888; font-weight: 400; margin-bottom: 2px; }
+      .count-num { font-size: 36px; line-height: 1; color: var(--main-color); }
+      .divider { width: 30px; height: 1px; background: #ddd; margin: 8px auto; }
+      .room-stat { font-size: 13px; color: #555; font-weight: 700; }
+      .room-stat span { color: var(--main-color); }
+
+      /* 애니메이션 및 상태 */
+      .circle.scanning { border: 4px solid #eee; color: #999; }
+      .circle.scanning::after {
+        content: ''; position: absolute; inset: -5px; border-radius: 50%; border: 4px solid transparent;
+        border-top-color: var(--main-color); border-right-color: var(--main-color); animation: spin 1.5s linear infinite;
+      }
+      .circle.result { border: 6px solid var(--main-color); background: var(--bg-color); }
+      @keyframes spin { 100% { transform: rotate(360deg); } }
+
+      /* 리스트 & 차트 */
+      .chart-container { margin-bottom: 30px; padding: 15px; border: 1px solid #eee; border-radius: 12px; background: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+      .chart-title { font-size: 16px; font-weight: 700; margin-bottom: 15px; color: var(--main-color); text-align: center; }
+      
+      .chat-btn-yellow {
+        display: block; width: 100%; padding: 15px; margin-bottom: 10px;
+        background: linear-gradient(135deg, var(--accent-color), #fff9c4); 
+        color: #3c1e1e; border-radius: 12px; text-decoration: none; box-sizing: border-box;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05); position: relative; transition: transform 0.2s;
+      }
+      .chat-btn-yellow:hover { transform: translateY(-2px); }
+      .chat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+      .dist-badge { background: rgba(255,255,255,0.7); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+      .chat-info-sub { font-size: 12px; color: #555; }
+      .timer-badge { position: absolute; bottom: 15px; right: 15px; background: var(--main-color); color: #fff; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
+      .stat-info { text-align: center; font-size: 11px; color: #999; margin-top: -20px; margin-bottom: 20px; }
     </style>
-</head>
-<body>
-
+  </head>
+  <body>
     <div class="container">
-        <h1 id="mainTitle">로딩 중...</h1>
+      
+      <div id="view-home" class="view active">
+        <h1 id="ui-main-title">로딩중...</h1>
+        <div id="cloud-area"><div style="text-align:center;color:#999;width:100%;margin-top:20px;">데이터 불러오는 중...</div></div>
+        
+        <button id="ui-btn-input" class="btn-primary" onclick="goInput('')">입력하기</button>
+        <button id="ui-btn-stats" class="btn-stats" onclick="loadStats()">통계 보기</button> 
+        <button class="btn-text" onclick="loadDataFromFirebase()">새로고침</button>
+      </div>
 
-        <div id="inputSection">
-            <div class="form-group">
-                <label id="keywordLabel">키워드</label>
-                <input type="text" id="keyword" placeholder="">
+      <div id="view-input" class="view">
+        <button class="btn-text" style="padding:0; margin:0 0 10px 0; text-align:left; width:auto;" onclick="goHome()">← 돌아가기</button>
+        
+        <label id="ui-label-keyword" class="label">키워드</label>
+        <input type="text" id="input-keyword" class="input-field" placeholder="">
+        
+        <label id="ui-label-type" class="label">방식</label>
+        <select id="input-type" class="input-field"></select>
+
+        <div class="detail-row">
+            <div class="detail-col">
+                <label id="ui-label-budget" class="label">비용</label>
+                <select id="input-budget" class="input-field"></select>
             </div>
-
-            <div class="form-group">
-                <label id="typeLabel">방식</label>
-                <select id="typeSelect"></select>
+            <div class="detail-col">
+                <label id="ui-label-time" class="label">시간</label>
+                <select id="input-time" class="input-field"></select>
             </div>
-
-            <div class="form-group">
-                <label id="budgetLabel">예산</label>
-                <select id="budgetSelect"></select>
-            </div>
-
-            <div class="form-group">
-                <label id="timeLabel">시간</label>
-                <select id="timeSelect"></select>
-            </div>
-
-            <button class="btn-submit" id="submitBtn" onclick="sendSignal()">시그널 보내기</button>
-            <div class="loading" id="loadingMsg"><i class="fas fa-spinner fa-spin"></i> 전송 중...</div>
-            
-            <button class="btn-submit btn-stats" id="statsBtn" onclick="toggleStats()">📊 트렌드 보기</button>
         </div>
 
-        <div id="statsSection">
-            <h3 id="statTitle" style="text-align: center;"></h3>
-            <h4 id="chartTitle1"></h4>
-            <div class="chart-container">
-                <canvas id="typeChart"></canvas>
-            </div>
-            <div id="rankList"></div>
+        <label class="label">오픈카톡/연락처 (선택)</label>
+        <input type="text" id="input-link" class="input-field" placeholder="https://open.kakao.com/...">
+        <label class="label">이메일 (선택)</label>
+        <input type="email" id="input-email" class="input-field" placeholder="매칭 알림용">
+        
+        <button id="ui-btn-submit" class="btn-primary" onclick="requestLocationAndSubmit()">신호 보내기</button>
+        <div style="text-align:center; font-size:11px; color:#999; margin-top:10px;">* 거리 계산을 위해 위치 권한이 필요합니다.</div>
+        <div style="height:50px;"></div>
+      </div>
+
+      <div id="view-result" class="view">
+        <h1>분석 결과</h1>
+        <div class="circle-container">
+            <div id="result-circle" class="circle scanning"><span style="font-size:20px;">SCAN</span></div>
         </div>
+        <div class="stat-info">* 최근 3시간 내 입력 기준</div>
+        <p id="result-msg" style="text-align:center; color:#555; font-weight:bold; margin-bottom:5px;">탐색 중...</p>
+        <div id="chat-list-area"></div>
+        <button class="btn-primary" onclick="goHome()">처음으로 돌아가기</button>
+      </div>
+
+      <div id="view-stats" class="view">
+         <button class="btn-text" style="padding:0; margin:0 0 20px 0; text-align:left; width:auto;" onclick="goHome()">← 돌아가기</button>
+         <h1 id="ui-stat-title">트렌드 분석</h1>
+         
+         <div class="chart-container">
+            <div id="ui-chart-title-1" class="chart-title">🔥 핫 키워드 Top 5</div>
+            <canvas id="chart-keyword"></canvas>
+         </div>
+         <div class="chart-container">
+            <div class="chart-title">🕒 시간대별 추이</div>
+            <canvas id="chart-time"></canvas>
+         </div>
+         <div class="chart-container">
+            <div class="chart-title">🧩 선호하는 방식</div>
+            <canvas id="chart-type" style="max-height: 250px;"></canvas>
+         </div>
+      </div>
+
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getDatabase, ref, push, onValue, query, limitToLast } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+    <script>
+      // -----------------------------------------------------------
+      // [1] 앱 설정 (맘스 시그널 Ver)
+      // -----------------------------------------------------------
+      const APP_CONFIG = {
+          appName: "moms_signal", 
+          colors: {
+              main: "#ff7675",    // 소프트 코랄 (따뜻함)
+              accent: "#fdcb6e",  // 웜 옐로우
+              bg: "#fff5f5"       // 웜 화이트
+          },
+          text: {
+              mainTitle: "육아 동지 찾기,<br><span>맘스 시그널</span>을 켜세요!",
+              inputBtn: "동지 찾기 / 수다",
+              statsBtn: "📊 육아 트렌드 보기",
+              keywordLabel: "육아 고민/키워드",
+              keywordPlace: "ex. 등원전쟁, 독박육아, 이유식거부",
+              typeLabel: "만남 유형",
+              budgetLabel: "비용/준비물",
+              timeLabel: "가능 시간대",
+              submitBtn: "맘스 시그널 송출",
+              statTitle: "우리 동네 맘들의<br><span>육아 트렌드</span>",
+              chartTitle1: "🔥 핫한 육아고민 Top 5"
+          },
+          options: {
+              type: [
+                  { val: "stroller", label: "🛒 유모차 산책/마실" },
+                  { val: "chat", label: "☕ 커피타임/수다" },
+                  { val: "info", label: "🏥 소아과/어린이집 정보" },
+                  { val: "fleamarket", label: "🍼 드림/벼룩/육아템" }
+              ],
+              budget: [
+                  { val: "dutch", label: "더치페이 (각자 계산)" },
+                  { val: "coffee", label: "제가 살게요 (커피)" },
+                  { val: "free", label: "비용 없음 (산책/놀이터)" },
+                  { val: "share", label: "공동 구매 (배송비 절약)" }
+              ],
+              time: [
+                  { val: "morning", label: "등원 후 (자유부인)" },
+                  { val: "nap", label: "낮잠 타임 (조용히)" },
+                  { val: "afternoon", label: "하원 후 (놀이터)" },
+                  { val: "weekend", label: "주말 공동육아" }
+              ]
+          }
+      };
 
-        // ============================================================
-        // [중요] 사장님의 Firebase 설정값을 여기에 붙여넣으세요!
-        // ============================================================
-        const firebaseConfig = {
+      // -----------------------------------------------------------
+      // [2] Firebase 초기화
+      // -----------------------------------------------------------
+      const firebaseConfig = {
     apiKey: "AIzaSyB6WjGUEn0fEg_k4Yk15bhzAFDoo7RcqWg",
     authDomain: "want-log-v2.firebaseapp.com",
     databaseURL: "https://want-log-v2-default-rtdb.firebaseio.com",
@@ -95,206 +223,397 @@
     appId: "1:142800647324:web:e3100ec7b4daa8467ae959",
     measurementId: "G-HZ4HBQH697"
   };
+      
+      // Firebase 초기화 (버전 8 방식)
+      if (!firebase.apps.length) {
+          firebase.initializeApp(firebaseConfig);
+      }
+      const db = firebase.database();
+      const appRef = db.ref(APP_CONFIG.appName); 
 
+      // -----------------------------------------------------------
+      // [3] 전역 변수 및 초기 실행
+      // -----------------------------------------------------------
+      var timerInterval = null;
+      var myCharts = {};
+      
+      // 시작하자마자 설정 적용 및 데이터 로드
+      window.onload = function() {
+          applyAppConfig();
+          loadDataFromFirebase();
+      };
 
-        // Firebase 초기화
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
+      // -----------------------------------------------------------
+      // [4] 앱 설정 적용 함수 (App Factory Core)
+      // -----------------------------------------------------------
+      function applyAppConfig() {
+          // CSS 변수 세팅
+          document.documentElement.style.setProperty('--main-color', APP_CONFIG.colors.main);
+          document.documentElement.style.setProperty('--accent-color', APP_CONFIG.colors.accent);
+          document.documentElement.style.setProperty('--bg-color', APP_CONFIG.colors.bg);
 
-        // ============================================================
-        // APP CONFIG 설정 (원하는 버전의 주석을 풀어서 사용하세요)
-        // ============================================================
-        
-        /* [옵션 1] 뷰티 시그널 */
-        /*
-        const APP_CONFIG = {
-            appName: "beauty_signal",
-            colors: { main: "#6200ea", accent: "#ffd700", bg: "#f8f5ff" },
-            text: {
-                mainTitle: "예뻐지는 신호,<br><span>뷰티 시그널</span>을 켜세요!",
-                keywordLabel: "시술/고민 키워드", keywordPlace: "ex. 인모드, 입술필러",
-                typeLabel: "원하는 방식", budgetLabel: "예상 비용", timeLabel: "매칭 마감",
-                submitBtn: "뷰티 시그널 송출", statTitle: "언니들의 뷰티 트렌드", chartTitle1: "🔥 인기있는 방식 Top 4"
+          // 텍스트 세팅
+          document.getElementById('ui-main-title').innerHTML = APP_CONFIG.text.mainTitle;
+          document.getElementById('ui-btn-input').innerText = APP_CONFIG.text.inputBtn;
+          document.getElementById('ui-btn-stats').innerText = APP_CONFIG.text.statsBtn;
+          
+          document.getElementById('ui-label-keyword').innerText = APP_CONFIG.text.keywordLabel;
+          document.getElementById('input-keyword').placeholder = APP_CONFIG.text.keywordPlace;
+          document.getElementById('ui-label-type').innerText = APP_CONFIG.text.typeLabel;
+          document.getElementById('ui-label-budget').innerText = APP_CONFIG.text.budgetLabel;
+          document.getElementById('ui-label-time').innerText = APP_CONFIG.text.timeLabel;
+          document.getElementById('ui-btn-submit').innerText = APP_CONFIG.text.submitBtn;
+          
+          document.getElementById('ui-stat-title').innerHTML = APP_CONFIG.text.statTitle;
+          document.getElementById('ui-chart-title-1').innerText = APP_CONFIG.text.chartTitle1;
+
+          // 드롭다운 옵션 생성
+          fillSelect('input-type', APP_CONFIG.options.type);
+          fillSelect('input-budget', APP_CONFIG.options.budget);
+          fillSelect('input-time', APP_CONFIG.options.time);
+      }
+
+      function fillSelect(id, options) {
+          var el = document.getElementById(id);
+          el.innerHTML = '';
+          options.forEach(opt => {
+              var o = document.createElement('option');
+              o.value = opt.val;
+              o.innerText = opt.label;
+              el.appendChild(o);
+          });
+      }
+
+      // -----------------------------------------------------------
+      // [5] Firebase 데이터 로직 (읽기/쓰기)
+      // -----------------------------------------------------------
+      
+      // A. 실시간 트렌드 로드 (Client-side Filtering)
+      function loadDataFromFirebase() {
+          var cloud = document.getElementById('cloud-area');
+          cloud.innerHTML = '<div style="text-align:center;color:#999;width:100%;margin-top:20px;">데이터 스캔 중...</div>';
+
+          // 최근 데이터 가져오기 (시간순 정렬)
+          appRef.orderByChild('timestamp').limitToLast(100).once('value').then((snapshot) => {
+              cloud.innerHTML = '';
+              const data = snapshot.val();
+              if(!data) {
+                  cloud.innerHTML='<div style="text-align:center; width:100%; color:#ccc;">아직 데이터가 없어요!</div>';
+                  return;
+              }
+
+              // 데이터 가공 (역순 정렬 및 중복 키워드 제거)
+              const items = Object.values(data).reverse();
+              const uniqueSet = new Set();
+              
+              items.forEach(item => {
+                  if(item.keyword && !uniqueSet.has(item.keyword) && uniqueSet.size < 20) {
+                      uniqueSet.add(item.keyword);
+                      var t = document.createElement('div'); 
+                      t.className='tag'; 
+                      t.innerText=item.keyword;
+                      t.onclick=function(){ goInput(item.keyword); }; 
+                      cloud.appendChild(t);
+                  }
+              });
+          });
+      }
+
+      // B. 데이터 전송 (직접 쓰기)
+      function submitData(lat, lng) {
+          document.getElementById('result-msg').innerText = "실시간 서버에 접속 중...";
+          
+          const now = new Date().getTime();
+          const payload = {
+              timestamp: now,
+              keyword: document.getElementById('input-keyword').value,
+              type: document.getElementById('input-type').value,
+              budget: document.getElementById('input-budget').value,
+              validTime: document.getElementById('input-time').value,
+              link: document.getElementById('input-link').value,
+              email: document.getElementById('input-email').value,
+              lat: lat, 
+              lng: lng,
+              id: 'WANT-' + now + '-' + Math.floor(Math.random()*1000)
+          };
+
+          // Firebase에 저장
+          appRef.push(payload).then(() => {
+              console.log("저장 성공");
+              // 저장 후 바로 매칭 결과 계산
+              calculateMatching(payload);
+          }).catch((error) => {
+              alert("저장 실패: " + error.message);
+              goHome();
+          });
+      }
+
+      // C. 클라이언트 사이드 매칭 로직 (서버 없이 계산)
+      function calculateMatching(myData) {
+          document.getElementById('result-msg').innerText = "매칭 상대를 찾는 중...";
+          
+          appRef.orderByChild('timestamp').limitToLast(200).once('value').then((snapshot) => {
+              const allData = snapshot.val();
+              const matches = [];
+              let interestCount = 0;
+              const now = new Date().getTime();
+              const STATS_WINDOW_MS = 3 * 60 * 60 * 1000; // 3시간
+
+              if(allData) {
+                  Object.values(allData).forEach(row => {
+                      // 1. 관심자 수 카운트 (3시간 내 + 키워드 일치)
+                      if(row.keyword === myData.keyword && (now - row.timestamp) < STATS_WINDOW_MS) {
+                          interestCount++;
+                      }
+
+                      // 2. 채팅방 매칭 (링크 있음 + 내꺼 아님 + 키워드 일치)
+                      if(row.keyword === myData.keyword && row.link && row.id !== myData.id) {
+                          // 유효시간 체크
+                          var durationMap = {"1h": 1, "3h": 3, "6h": 6, "12h": 12};
+                          var hours = durationMap[row.validTime] || 24;
+                          var expireTime = row.timestamp + (hours * 60 * 60 * 1000);
+
+                          if(now < expireTime) {
+                              var dist = getDistanceFromLatLonInKm(myData.lat, myData.lng, row.lat, row.lng);
+                              matches.push({
+                                  link: row.link,
+                                  expireTime: expireTime,
+                                  type: row.type,
+                                  budget: row.budget,
+                                  distance: dist
+                              });
+                          }
+                      }
+                  });
+              }
+              
+              renderResults({ interestCount: interestCount, activeRooms: matches });
+          });
+      }
+
+      // D. 통계 데이터 계산
+      function loadStats() {
+          showView('view-stats');
+          // 최근 300개 데이터로 통계 냄
+          appRef.orderByChild('timestamp').limitToLast(300).once('value').then((snapshot) => {
+              const data = snapshot.val();
+              if(!data) return;
+
+              const items = Object.values(data);
+              var keywordCounts = {};
+              var timeCounts = { "Morning(아침)":0, "Lunch(점심)":0, "Afternoon(오후)":0, "Evening(저녁)":0, "Night(심야)":0 };
+              var typeCounts = { "together":0, "empathy":0, "exchange":0, "transfer":0 };
+
+              items.forEach(item => {
+                  // 키워드
+                  if(item.keyword) keywordCounts[item.keyword] = (keywordCounts[item.keyword] || 0) + 1;
+                  
+                  // 타입
+                  if(item.type && typeCounts.hasOwnProperty(item.type)) typeCounts[item.type]++;
+
+                  // 시간대 (타임스탬프로 역산)
+                  var hour = new Date(item.timestamp).getHours();
+                  var timeBlock = "";
+                  if (hour >= 6 && hour < 11) timeBlock = "Morning(아침)";
+                  else if (hour >= 11 && hour < 14) timeBlock = "Lunch(점심)";
+                  else if (hour >= 14 && hour < 18) timeBlock = "Afternoon(오후)";
+                  else if (hour >= 18 && hour < 22) timeBlock = "Evening(저녁)";
+                  else timeBlock = "Night(심야)";
+                  if(timeBlock) timeCounts[timeBlock]++;
+              });
+
+              // Top 5 정렬
+              var sortedKeywords = Object.entries(keywordCounts).sort((a,b) => b[1]-a[1]).slice(0,5);
+
+              renderCharts({
+                  topKeywords: sortedKeywords,
+                  timeStats: timeCounts,
+                  typeStats: typeCounts
+              });
+          });
+      }
+
+      // -----------------------------------------------------------
+      // [6] 유틸리티 및 UI 함수
+      // -----------------------------------------------------------
+      
+      // 거리 계산 (Haversine) - JS로 이식됨
+      function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+          if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+          var R = 6371; 
+          var dLat = deg2rad(lat2-lat1);
+          var dLon = deg2rad(lon2-lon1); 
+          var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2); 
+          var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+          return R * c;
+      }
+      function deg2rad(deg) { return deg * (Math.PI/180); }
+
+      // 뷰 전환
+      function showView(id) {
+        document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        window.scrollTo(0,0);
+      }
+      function goHome() {
+        if(timerInterval) clearInterval(timerInterval);
+        document.getElementById('input-keyword').value = '';
+        document.getElementById('input-link').value = ''; 
+        document.getElementById('chat-list-area').innerHTML = '';
+        var c = document.getElementById('result-circle');
+        c.className = 'circle scanning'; 
+        c.innerHTML = '<span style="font-size:20px;">SCAN</span>';
+        document.getElementById('result-msg').innerText = '';
+        showView('view-home');
+        loadDataFromFirebase();
+      }
+      function goInput(txt) {
+        if(txt) document.getElementById('input-keyword').value = txt;
+        showView('view-input');
+      }
+
+      // 위치 요청
+      function requestLocationAndSubmit() {
+        var k = document.getElementById('input-keyword').value;
+        if(!k) { alert('키워드를 입력하세요'); return; }
+        showView('view-result');
+        document.getElementById('result-msg').innerText = "위치 정보를 확인 중입니다...";
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            function(position) { submitData(position.coords.latitude, position.coords.longitude); },
+            function(error) { console.log("위치 실패", error); submitData(null, null); }
+          );
+        } else { submitData(null, null); }
+      }
+
+      // 결과 렌더링
+      function renderResults(res) {
+          var c = document.getElementById('result-circle');
+          var msg = document.getElementById('result-msg');
+          c.className = 'circle result';
+          c.innerHTML = `
+            <div class="count-group">
+                <div class="count-label">관심있는 이웃</div>
+                <div class="count-num">${res.interestCount}</div>
+            </div>
+            <div class="divider"></div>
+            <div class="room-stat">오픈 채팅방 <span>${res.activeRooms.length}</span></div>
+          `;
+          if (res.activeRooms.length > 0) {
+              msg.innerText = "매칭 성공! 대화에 참여해보세요.";
+              createChatButtons(res.activeRooms);
+          } else {
+              msg.innerText = "아직 오픈된 방은 없네요.";
+          }
+      }
+
+      // 채팅방 버튼 생성
+      function createChatButtons(matches) {
+          var listArea = document.getElementById('chat-list-area');
+          listArea.innerHTML = '';
+          matches.forEach(function(match, index) {
+              var btn = document.createElement('a');
+              btn.className = 'chat-btn-yellow';
+              btn.href = match.link;
+              btn.target = "_blank";
+              
+              var distText = "거리모름";
+              if (match.distance !== null) {
+                  if (match.distance < 1) distText = Math.round(match.distance * 1000) + "m";
+                  else distText = match.distance.toFixed(1) + "km";
+              }
+              
+              // 옵션 라벨 찾기
+              var typeLabel = APP_CONFIG.options.type.find(o => o.val === match.type)?.label || match.type;
+              var budgetLabel = APP_CONFIG.options.budget.find(o => o.val === match.budget)?.label || match.budget;
+
+              btn.innerHTML = `
+                <div class="chat-header">
+                    <span style="font-weight:bold;">💬 대화방 입장 (${index+1})</span>
+                    <span class="dist-badge">📍 ${distText}</span>
+                </div>
+                <div class="chat-info-sub">${typeLabel} · ${budgetLabel}</div>
+                <span id="timer-${index}" class="timer-badge">계산중...</span>
+              `;
+              listArea.appendChild(btn);
+          });
+
+          if(timerInterval) clearInterval(timerInterval);
+          timerInterval = setInterval(function() {
+              var now = new Date().getTime();
+              matches.forEach(function(match, index) {
+                  var badge = document.getElementById(`timer-${index}`);
+                  if(badge) {
+                      var diff = match.expireTime - now;
+                      if (diff <= 0) {
+                          badge.innerText = "종료됨";
+                          badge.style.background = "#999";
+                      } else {
+                          var h = Math.floor(diff / (1000 * 60 * 60));
+                          var m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                          var s = Math.floor((diff % (1000 * 60)) / 1000);
+                          badge.innerText = (h>0 ? h+"시간 " : "") + m + "분 " + s + "초";
+                      }
+                  }
+              });
+          }, 1000);
+      }
+
+      // 차트 그리기
+      function renderCharts(data) {
+        if(myCharts.keyword) myCharts.keyword.destroy();
+        if(myCharts.time) myCharts.time.destroy();
+        if(myCharts.type) myCharts.type.destroy();
+
+        var ctxKw = document.getElementById('chart-keyword').getContext('2d');
+        myCharts.keyword = new Chart(ctxKw, {
+            type: 'bar',
+            data: {
+                labels: data.topKeywords.map(i => i[0]),
+                datasets: [{
+                    data: data.topKeywords.map(i => i[1]),
+                    backgroundColor: APP_CONFIG.colors.main,
+                    borderRadius: 8
+                }]
             },
-            options: {
-                type: [{val:"together", label:"정보교환"}, {val:"empathy", label:"동행"}, {val:"exchange", label:"공구"}, {val:"transfer", label:"양도"}],
-                budget: [{val:"free", label:"미정"}, {val:"30", label:"10만원대"}, {val:"50", label:"50만원대"}, {val:"high", label:"고가"}],
-                time: [{val:"1h", label:"급구"}, {val:"today", label:"오늘"}, {val:"week", label:"이번주"}]
-            }
-        };
-        */
+            options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision:0 }, grid: { display:false } }, x: { grid: { display:false } } } }
+        });
 
-        /* [옵션 2] 맘스 시그널 (현재 활성화) */
-       const APP_CONFIG = {
-    appName: "moms_signal", 
-    colors: {
-        main: "#ff7675",    // 소프트 코랄 (따뜻함)
-        accent: "#fdcb6e",  // 웜 옐로우
-        bg: "#fff5f5"       // 웜 화이트
-    },
-    text: {
-        mainTitle: "육아 동지 찾기,<br><span>맘스 시그널</span>을 켜세요!",
-        keywordLabel: "육아 고민/키워드",
-        keywordPlace: "ex. 등원전쟁, 문센룩, 이유식거부, 독박육아",
-        typeLabel: "만남 유형",
-        budgetLabel: "비용/준비물",
-        timeLabel: "가능 시간대",
-        submitBtn: "맘스 시그널 송출",
-        inputBtn: "동지 찾기 / 수다", 
-        statsBtn: "📊 육아 트렌드 보기",
-        statTitle: "우리 동네 맘들의<br><span>육아 트렌드</span>",
-        chartTitle1: "🔥 핫한 육아고민 Top 5"
-    },
-    options: {
-        type: [
-            { val: "stroller", label: "🛒 유모차 산책/마실" },
-            { val: "chat", label: "☕ 커피타임/수다" },
-            { val: "info", label: "🏥 소아과/어린이집 정보" },
-            { val: "fleamarket", label: "🍼 드림/벼룩/육아템" }
-        ],
-        budget: [
-            { val: "dutch", label: "더치페이 (각자 계산)" },
-            { val: "coffee", label: "제가 살게요 (커피)" },
-            { val: "free", label: "비용 없음 (산책/놀이터)" },
-            { val: "share", label: "공동 구매 (배송비 절약)" }
-        ],
-        time: [
-            { val: "morning", label: "등원 후 (자유부인)" },
-            { val: "nap", label: "낮잠 타임 (조용히)" },
-            { val: "afternoon", label: "하원 후 (놀이터)" },
-            { val: "weekend", label: "주말 공동육아" }
-        ]
-    }
-};
+        var ctxTime = document.getElementById('chart-time').getContext('2d');
+        var timeLabels = ["Morning(아침)", "Lunch(점심)", "Afternoon(오후)", "Evening(저녁)", "Night(심야)"];
+        var simpleTimeLabels = ["아침", "점심", "오후", "저녁", "심야"];
+        myCharts.time = new Chart(ctxTime, {
+            type: 'line',
+            data: {
+                labels: simpleTimeLabels,
+                datasets: [{
+                    data: timeLabels.map(k => data.timeStats[k] || 0),
+                    borderColor: APP_CONFIG.colors.accent,
+                    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+                    fill: true, tension: 0.4
+                }]
+            },
+            options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision:0 } } } }
+        });
 
-        // ============================================================
-        // 1. 화면 초기화 (Config 적용)
-        // ============================================================
-        document.documentElement.style.setProperty('--main-color', APP_CONFIG.colors.main);
-        document.documentElement.style.setProperty('--accent-color', APP_CONFIG.colors.accent);
-        document.documentElement.style.setProperty('--bg-color', APP_CONFIG.colors.bg);
-        
-        document.getElementById('mainTitle').innerHTML = APP_CONFIG.text.mainTitle;
-        document.getElementById('keywordLabel').innerText = APP_CONFIG.text.keywordLabel;
-        document.getElementById('keyword').placeholder = APP_CONFIG.text.keywordPlace;
-        document.getElementById('typeLabel').innerText = APP_CONFIG.text.typeLabel;
-        document.getElementById('budgetLabel').innerText = APP_CONFIG.text.budgetLabel;
-        document.getElementById('timeLabel').innerText = APP_CONFIG.text.timeLabel;
-        document.getElementById('submitBtn').innerText = APP_CONFIG.text.submitBtn;
-        document.getElementById('statTitle').innerHTML = APP_CONFIG.text.statTitle;
-        document.getElementById('chartTitle1').innerText = APP_CONFIG.text.chartTitle1;
+        var ctxType = document.getElementById('chart-type').getContext('2d');
+        var typeLabels = APP_CONFIG.options.type.map(o => o.label);
+        var typeVals = APP_CONFIG.options.type.map(o => data.typeStats[o.val] || 0);
 
-        // 옵션 채우기 함수
-        function fillSelect(id, list) {
-            const el = document.getElementById(id);
-            list.forEach(opt => {
-                let option = document.createElement('option');
-                option.value = opt.val;
-                option.text = opt.label;
-                el.appendChild(option);
-            });
-        }
-        fillSelect('typeSelect', APP_CONFIG.options.type);
-        fillSelect('budgetSelect', APP_CONFIG.options.budget);
-        fillSelect('timeSelect', APP_CONFIG.options.time);
-
-        // 전역 함수로 만들기 (HTML에서 onclick으로 쓰기 위해)
-        window.sendSignal = function() {
-            const keyword = document.getElementById('keyword').value;
-            if(!keyword) { alert('키워드를 입력해주세요!'); return; }
-
-            const data = {
-                keyword: keyword,
-                type: document.getElementById('typeSelect').value,
-                budget: document.getElementById('budgetSelect').value,
-                time: document.getElementById('timeSelect').value,
-                timestamp: new Date().toISOString()
-            };
-
-            document.getElementById('loadingMsg').style.display = 'block';
-            document.getElementById('submitBtn').disabled = true;
-
-            // Firebase에 데이터 저장
-            push(ref(db, APP_CONFIG.appName), data)
-                .then(() => {
-                    alert('신호가 정상적으로 전송되었습니다! 📡');
-                    document.getElementById('keyword').value = ''; // 초기화
-                })
-                .catch((error) => {
-                    alert('전송 실패: ' + error.message);
-                })
-                .finally(() => {
-                    document.getElementById('loadingMsg').style.display = 'none';
-                    document.getElementById('submitBtn').disabled = false;
-                });
-        };
-
-        // ============================================================
-        // 2. 통계 기능 (데이터 가져오기 및 차트 그리기)
-        // ============================================================
-        let chartInstance = null;
-
-        window.toggleStats = function() {
-            const statsDiv = document.getElementById('statsSection');
-            if(statsDiv.style.display === 'none' || statsDiv.style.display === '') {
-                statsDiv.style.display = 'block';
-                loadStats(); // 데이터 로드 시작
-            } else {
-                statsDiv.style.display = 'none';
-            }
-        };
-
-        function loadStats() {
-            // 최근 100개 데이터만 가져와서 통계 내기 (데이터 절약)
-            const recentPosts = query(ref(db, APP_CONFIG.appName), limitToLast(100));
-            
-            onValue(recentPosts, (snapshot) => {
-                const data = snapshot.val();
-                if(!data) return;
-
-                // 데이터 집계
-                const typeCounts = {};
-                Object.values(data).forEach(item => {
-                    // Config에 있는 라벨로 변환해서 카운트
-                    const labelObj = APP_CONFIG.options.type.find(opt => opt.val === item.type);
-                    const label = labelObj ? labelObj.label : item.type;
-                    typeCounts[label] = (typeCounts[label] || 0) + 1;
-                });
-
-                drawChart(typeCounts);
-            });
-        }
-
-        function drawChart(counts) {
-            const ctx = document.getElementById('typeChart').getContext('2d');
-            
-            // 기존 차트 있으면 삭제 (겹침 방지)
-            if(chartInstance) chartInstance.destroy();
-
-            chartInstance = new Chart(ctx, {
-                type: 'doughnut', // 도넛 차트
-                data: {
-                    labels: Object.keys(counts),
-                    datasets: [{
-                        data: Object.values(counts),
-                        backgroundColor: [
-                            APP_CONFIG.colors.main,
-                            APP_CONFIG.colors.accent,
-                            '#bdc3c7',
-                            '#34495e'
-                        ],
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom' }
-                    }
-                }
-            });
-        }
+        myCharts.type = new Chart(ctxType, {
+            type: 'doughnut',
+            data: {
+                labels: typeLabels,
+                datasets: [{
+                    data: typeVals,
+                    backgroundColor: ['#7c4dff', '#b47cff', '#ffd700', '#ff4081'],
+                    borderWidth: 2, borderColor: '#fff'
+                }]
+            },
+            options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } } }, cutout: '60%' }
+        });
+      }
     </script>
-</body>
+  </body>
 </html>
